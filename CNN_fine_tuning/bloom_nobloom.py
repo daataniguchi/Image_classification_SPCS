@@ -24,9 +24,11 @@ def resize(img, resize_size=(150, 150), num_color_channels=3):
 
 label_map = {0:'Ciliate', 1:'L_Poly', 2:'Other'}
 
-model = load_model('saved_models/model_dense-units=8_dropout=0.4_val-acc=0.86.h5')
+model = load_model('saved_models/model_dense-units=8_dropout=0.4_val-acc=0.86.h5') #TODO: update!
 
-root_dir = 'SPCP2_unlabeled_data_2020_bloom_no_bloom'
+root_dir = 'SPCP2_unlabeled_data_2020_bloom_no_bloom' #TODO: update!
+
+save_dir = 'tmp' #TODO: change!
 
 counts = collections.defaultdict(dict)
 for root, dirs, files in os.walk(root_dir):
@@ -34,6 +36,7 @@ for root, dirs, files in os.walk(root_dir):
         print(root)
 
         counts[root] = {'Ciliate': 0, 'L_Poly': 0, 'Other': 0, 'Total': 0}
+        file_names = {'Ciliate': [], 'L_Poly': [], 'Other': []}
         for f in files:
             img = cv.imread(os.path.join(root,f))
             img = resize(img)
@@ -42,6 +45,7 @@ for root, dirs, files in os.walk(root_dir):
             y_pred = np.argmax(out[0])
             counts[root][label_map[y_pred]] += 1
             counts[root]['Total'] += 1
+            file_names[label_map[y_pred]].append(os.path.join(root,f))
 
 for k,v in counts.items():
     print('{}:{}'.format(k,v))
@@ -50,6 +54,12 @@ for k,v in counts.items():
     for kv, vv in v.items():
         counts[k][kv] = float(vv)/counts[k]['Total']
     print('{}:{}'.format(k,counts[k]))
+
+# save file_names dict to text file
+with open(save_dir + '/classification_file_names.txt', 'w') as f:
+    f.write(str(file_names))
+    
+
 
 
 

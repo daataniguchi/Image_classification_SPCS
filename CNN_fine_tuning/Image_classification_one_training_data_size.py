@@ -84,6 +84,7 @@ def make_train_val(files, labels):
     train_prop = 0.8 #proportion of data set that will be training
     for key in labels: #going through each key
         temp = [f for f in files if key in f] #getting all files in a specific category (ie key)
+        temp = sorted(temp)
         train.extend(temp[:math.ceil(train_prop*len(temp))]) #training data set
         valid.extend(temp[math.ceil(train_prop*len(temp)):]) # validation data set
     train_labels_name = [x.split('/')[-2] for x in train]
@@ -171,10 +172,9 @@ def get_batches(files, label_map, batch_size, resize_size, num_color_channels, a
 
 # Get full paths to all classification data
 # Data is assumed to reside under the directory "root_dir", and data for each class is assumed to reside in a separate subfolder
-# root_dir = '/Users/dtaniguchi/Research/Image_classification/Scripps_plankton_camera_system_images/Practice_images'
-#root_dir = '/home/dtaniguchi/Python_practice/Different_sets_of_images/2000_Images'
 root_dir = '/home/dtaniguchi/Desktop/SPCP2_Images_450'
 img_types=['.jpg', '.tiff', '.tif', '.png', '.jpeg']
+save_dir = 'tmp' #TODO: change
 
 files = get_image_files(root_dir, img_types)
 print('number of files is ',len(files))
@@ -246,58 +246,6 @@ dataGen_train = ImageDataGenerator(featurewise_center=False, samplewise_center=F
                     zoom_range=0.5, fill_mode='constant', cval=0, horizontal_flip=True,
                     vertical_flip=True, rescale=None)
 
-"""
-Following code snippets are for training over a range of training sizes while keeping the validation data fixed
-
-# Split the data into training and validation
-num_val_examples_per_class = 100
-range_train_examples_per_class = [350]
-range_dense_units = [16] #[1,2,4,8]
-range_dropout = [0.4] #[0.0, 0.1, 0.2, 0.3, 0.4, 0.5]
-num_trials_per_permutation = 5
-
-# Use same validation files from 2000 images directory
-validation_files = get_image_files('/home/dtaniguchi/Python_practice/Different_sets_of_images/2000_Images', img_types)
-val_label_map = make_labels(validation_files)
-_, val_files = make_variable_train_fixed_val(validation_files, val_label_map, 1, num_val_examples_per_class)
-
-
-for num_train_examples_per_class in range_train_examples_per_class: # cycle through a range of training data size
-
-    # make_variable_train_fixed_val() obtains training examples from beginning of image list
-    # and validation examples from end of image list
-    train_files, _ = make_variable_train_fixed_val(files, label_map, num_train_examples_per_class, 0)
-    print('Total training examples: {}, total validation examples: {}'.format(len(train_files), len(val_files)))
-
-    for num_dense_units in range_dense_units: # cycle through a range of intermediate dense units
-        for dropout in range_dropout: # cycle through a range of dropout values
-            for nt in range(num_trials_per_permutation):
-                print('Trial: {}, num_train_examples_per_class: {}, num_dense_units: {}, dropout: {}'.format(
-                    nt, len(train_files), num_dense_units, dropout))
-
-                ES = EarlyStopping(monitor='val_loss', patience=10, verbose=0)
-                model = classifier(num_dense_units)
-
-                sta_time = time()
-                model.fit_generator(dataGen_train.flow(train_data, train_labels, batch_size=BS),
-                    epochs=EPOCHS,
-                    steps_per_epoch=len(train_files) // BS,
-                    validation_data=(val_data, val_labels_oh),
-                    callbacks=[ES],
-                    verbose=0)
-
-                val_acc = model.evaluate(val_data, val_labels_oh, batch_size=BS, verbose=0)
-                results = 'Trial: {}, num_training_per_class: {}, num_dense_units: {}, ' \
-                    'dropout: {}, validation (loss, acc): ({:.2g}, {:.2g}), time to train: {}s\n'.format(
-                    nt, len(train_files), num_dense_units, dropout, *val_acc, int(time()-sta_time))
-
-                print(results)
-                with open('Image_classification_one_training_data_size_results_{}_train_examples.txt'.format(len(train_files)), 'a') as f:
-                    f.write(results) # write results to file
-
-print('Done')
-"""
-
 
 """
 Following code snippets are for splitting a dataset into a disjoint set for training and validation.
@@ -324,7 +272,7 @@ for num_dense_units in range_dense_units: # cycle through a range of intermediat
 
             ES = EarlyStopping(monitor='val_loss', patience=20, verbose=0)
             MC = ModelCheckpoint(
-                'saved_models/model_dense-units={}_dropout={}_trial={}.h5'.format(num_dense_units, dropout, nt),
+                save_dir + '/model_dense-units={}_dropout={}_trial={}.h5'.format(num_dense_units, dropout, nt),
                 monitor='val_loss', verbose=0, save_best_only=True, save_weights_only=False, mode='auto', period=1
             )
             model = classifier(num_dense_units)
@@ -338,7 +286,7 @@ for num_dense_units in range_dense_units: # cycle through a range of intermediat
                 verbose=0)
 
             del model
-            model = load_model('saved_models/model_dense-units={}_dropout={}_trial={}.h5'.format(num_dense_units, dropout, nt))
+            model = load_model(save_dir + '/model_dense-units={}_dropout={}_trial={}.h5'.format(num_dense_units, dropout, nt))
             val_acc = model.evaluate(val_data, val_labels_oh, batch_size=BS, verbose=0)
             results = 'Trial: {}, num_training_per_class: {}, num_dense_units: {}, ' \
                 'dropout: {}, validation (loss, acc): ({:.2g}, {:.2g}), time to train: {}s\n'.format(
@@ -348,6 +296,6 @@ for num_dense_units in range_dense_units: # cycle through a range of intermediat
             with open('Image_classification_one_training_data_size_results_{}_train_examples.txt'.format(len(train_files)), 'a') as f:
                 f.write(results) # write results to file
 
-            model.save('saved_models/model_dense-units={}_dropout={}_val-acc={:.2g}.h5'.format(num_dense_units, dropout, val_acc[1]))
+            model.save(save_dir + '/model_dense-units={}_dropout={}_val-acc={:.2g}.h5'.format(num_dense_units, dropout, val_acc[1]))
 
 print('Done')
